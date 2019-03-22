@@ -29,6 +29,7 @@ import com.waz.threading.Threading
 import com.waz.utils.events.{EventContext, Signal}
 import com.waz.zclient.conversation.ConversationController
 import com.waz.zclient.core.stores.conversation.ConversationChangeRequester
+import com.waz.zclient.deeplinks.DeepLink.SSOLoginToken
 import com.waz.zclient.utils.{ConversationSignal, UiStorage}
 import com.waz.zclient.{Injectable, Injector}
 import com.waz.zclient.log.LogUI._
@@ -57,7 +58,7 @@ class UserAccountsController(implicit injector: Injector, context: Context, ec: 
     numberOfLoggedInAccounts = accsNumber
   }
 
-  val ssoToken = Signal(Option.empty[String])
+  val ssoToken = Signal(Option.empty[SSOLoginToken])
 
   lazy val currentUser = for {
     zms     <- zms

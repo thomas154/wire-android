@@ -161,10 +161,8 @@ class AppEntryActivity extends BaseActivity {
   private def showFragment(): Unit = withFragmentOpt(AppLaunchFragment.Tag) {
     case Some(_) =>
     case None =>
-      userAccountsController.ssoToken.head.foreach {
-        case Some(_) =>
-        // if the SSO token is present we will handle it in onResume
-        case _ =>
+      userAccountsController.ssoToken.head.foreach { token =>
+        if (token.isEmpty) {
           Option(getIntent.getExtras).map(_.getInt(MethodArg)) match {
             case Some(LoginArgVal) =>      showFragment(SignInFragment(), SignInFragment.Tag, animated = false)
             case Some(CreateTeamArgVal) => showFragment(TeamNameFragment(), TeamNameFragment.Tag, animated = false)
@@ -172,6 +170,7 @@ class AppEntryActivity extends BaseActivity {
               showFragment(SignInFragment(SignInFragment.SignInOnlyLogin), SignInFragment.Tag, animated = false)
             case _ =>                      showFragment(AppLaunchFragment(), AppLaunchFragment.Tag, animated = false)
           }
+        } // if the SSO token is present we will handle it in onResume
       }(Threading.Ui)
   }
 

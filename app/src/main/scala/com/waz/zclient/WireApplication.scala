@@ -131,7 +131,6 @@ object WireApplication extends DerivedLogTag {
     bind [BackendConfig]                  to inject[GlobalModule].backend
     bind [AccountStorage]                 to inject[GlobalModule].accountsStorage
     bind [TeamsStorage]                   to inject[GlobalModule].teamsStorage
-    bind [SSOService]                     to inject[GlobalModule].ssoService
     bind [GoogleApi]                      to inject[GlobalModule].googleApi
     bind [GlobalCallingService]           to inject[GlobalModule].calling
     bind [SyncHandler]                    to inject[GlobalModule].syncHandler

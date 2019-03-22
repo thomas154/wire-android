@@ -19,11 +19,13 @@ package com.waz.zclient.appentry
 
 import android.app.FragmentManager
 import com.waz.api.impl.ErrorResponse
-import com.waz.service.SSOService
+import com.waz.service.AccountsService
 import com.waz.zclient.InputDialog.{Event, OnNegativeBtn, OnPositiveBtn, ValidatorResult}
 import com.waz.zclient._
 import com.waz.zclient.appentry.DialogErrorMessage.GenericDialogErrorMessage
 import com.waz.zclient.common.controllers.UserAccountsController
+import com.waz.zclient.deeplinks.DeepLink.{RawToken, SSOLoginToken}
+import com.waz.zclient.deeplinks.{DeepLink, DeepLinkParser}
 import com.waz.zclient.log.LogUI._
 import com.waz.zclient.utils.ContextUtils._
 
@@ -37,19 +39,25 @@ trait SSOFragment extends FragmentHelper {
   import SSOFragment._
   import com.waz.threading.Threading.Implicits.Ui
 
-  private lazy val ssoService             = inject[SSOService]
+  private lazy val accountsService        = inject[AccountsService]
   private lazy val userAccountsController = inject[UserAccountsController]
 
   private lazy val dialogStaff = new InputDialog.Listener with InputDialog.InputValidator {
     override def onDialogEvent(event: Event): Unit = event match {
       case OnNegativeBtn        => verbose(l"Negative")
-      case OnPositiveBtn(input) => verifyInput(input)
+      case OnPositiveBtn(input) => parseToken(input).map(verifyToken)
     }
 
-    override def isInputInvalid(input: String): ValidatorResult =
-      if (ssoService.isTokenValid(input.trim)) ValidatorResult.Valid
+    override def isInputInvalid(input: String): ValidatorResult = {
+      if (parseToken(input).nonEmpty) ValidatorResult.Valid
       else ValidatorResult.Invalid()
+    }
   }
+
+  private def parseToken(input: String): Option[SSOLoginToken] =
+    DeepLinkParser
+      .parseToken(DeepLink.SSOLogin, RawToken(input))
+      .collect { case token: SSOLoginToken => token }
 
   override def onStart(): Unit = {
     super.onStart()
@@ -60,15 +68,17 @@ trait SSOFragment extends FragmentHelper {
   private def extractTokenFromClipboard: Future[Option[String]] = Future {
     for {
       clipboardText <- inject[ClipboardUtils].getPrimaryClipItemsAsText.headOption
-      token         <- ssoService.extractToken(clipboardText.toString)
-    } yield token
+      stringToken = clipboardText.toString.trim
+      _ = verbose(l"Extracted token: ${redactedString(stringToken)}")
+      _ <- parseToken(stringToken)
+    } yield stringToken
   }
 
   protected def extractTokenAndShowSSODialog(showIfNoToken: Boolean = false): Unit =
     userAccountsController.ssoToken.head.foreach {
       case Some(token) =>
         userAccountsController.ssoToken ! None
-        verifyInput(token)
+        verifyToken(token)
       case None if findChildFragment[InputDialog](SSODialogTag).isEmpty =>
         extractTokenFromClipboard
           .filter(_.nonEmpty || showIfNoToken)
@@ -92,25 +102,24 @@ trait SSOFragment extends FragmentHelper {
       .setValidator(dialogStaff)
       .show(getChildFragmentManager, SSODialogTag)
 
-  protected def verifyInput(input: String): Future[Unit] =
-    ssoService.extractUUID(input).fold(Future.successful(())) { token =>
-      onVerifyingToken(true)
-      ssoService.verifyToken(token).flatMap { result =>
-        onVerifyingToken(false)
-        import ErrorResponse._
-        result match {
-          case Right(true) =>
-            getFragmentManager.popBackStack(SSOWebViewFragment.Tag, FragmentManager.POP_BACK_STACK_INCLUSIVE)
-            Future.successful(activity.showFragment(SSOWebViewFragment.newInstance(token.toString), SSOWebViewFragment.Tag))
-          case Right(false) =>
-            showErrorDialog(R.string.sso_signin_wrong_code_title, R.string.sso_signin_wrong_code_message)
-          case Left(ErrorResponse(ConnectionErrorCode | TimeoutCode, _, _)) =>
-            showErrorDialog(GenericDialogErrorMessage(ConnectionErrorCode))
-          case Left(error) =>
-            showConfirmationDialog(getString(R.string.sso_signin_error_title), getString(R.string.sso_signin_error_try_again_message, error.code.toString)).map(_ => ())
-        }
+  protected def verifyToken(token: SSOLoginToken): Future[Unit] = {
+    onVerifyingToken(true)
+    accountsService.verifySSOToken(token.uuid).flatMap { result =>
+      onVerifyingToken(false)
+      import ErrorResponse._
+      result match {
+        case Right(true) =>
+          getFragmentManager.popBackStack(SSOWebViewFragment.Tag, FragmentManager.POP_BACK_STACK_INCLUSIVE)
+          Future.successful(activity.showFragment(SSOWebViewFragment.newInstance(token.toString), SSOWebViewFragment.Tag))
+        case Right(false) =>
+          showErrorDialog(R.string.sso_signin_wrong_code_title, R.string.sso_signin_wrong_code_message)
+        case Left(ErrorResponse(ConnectionErrorCode | TimeoutCode, _, _)) =>
+          showErrorDialog(GenericDialogErrorMessage(ConnectionErrorCode))
+        case Left(error) =>
+          showConfirmationDialog(getString(R.string.sso_signin_error_title), getString(R.string.sso_signin_error_try_again_message, error.code.toString)).map(_ => ())
       }
     }
+  }
 
   protected def activity: AppEntryActivity
 

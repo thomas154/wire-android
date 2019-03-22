@@ -41,6 +41,7 @@ import com.waz.zclient.common.controllers.{SharingController, UserAccountsContro
 import com.waz.zclient.controllers.navigation.{NavigationControllerObserver, Page}
 import com.waz.zclient.conversation.ConversationController
 import com.waz.zclient.core.stores.conversation.ConversationChangeRequester
+import com.waz.zclient.deeplinks.DeepLink.SSOLoginToken
 import com.waz.zclient.deeplinks.DeepLinkService.Error.{InvalidToken, SSOLoginTooManyAccounts}
 import com.waz.zclient.deeplinks.{DeepLink, DeepLinkService}
 import com.waz.zclient.fragments.ConnectivityFragment
@@ -167,7 +168,7 @@ class MainActivity extends BaseActivity
         showErrorDialog(R.string.sso_signin_max_accounts_title, R.string.sso_signin_max_accounts_message)
         startFirstFragment()
 
-      case OpenDeepLink(SSOLoginToken(token), _) =>
+      case OpenDeepLink(token: SSOLoginToken, _) =>
         openSignUpPage(Some(token))
 
       case OpenDeepLink(UserToken(userId), UserTokenInfo(connected, currentTeamMember)) =>
@@ -190,8 +191,8 @@ class MainActivity extends BaseActivity
     Option(ZMessaging.currentGlobal).foreach(_.googleApi.checkGooglePlayServicesAvailable(this))
   }
 
-  private def openSignUpPage(ssoToken: Option[String] = None): Unit = {
-    verbose(l"openSignUpPage(${ssoToken.map(showString)})")
+  private def openSignUpPage(ssoToken: Option[SSOLoginToken] = None): Unit = {
+    verbose(l"openSignUpPage($ssoToken)")
     userAccountsController.ssoToken ! ssoToken
     startActivity(new Intent(getApplicationContext, classOf[AppEntryActivity]))
     finish()

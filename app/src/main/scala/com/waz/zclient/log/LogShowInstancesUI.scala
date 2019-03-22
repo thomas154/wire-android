@@ -25,6 +25,7 @@ import com.waz.service.tracking.TrackingEvent
 import com.waz.zclient.Intents.RichIntent
 import com.waz.zclient.collection.controllers.CollectionController.ContentType
 import com.waz.zclient.deeplinks.DeepLink
+import com.waz.zclient.deeplinks.DeepLink.SSOLoginToken
 import com.waz.zclient.deeplinks.DeepLinkService.CheckingResult
 import com.waz.zclient.log.LogUI._
 import com.waz.zclient.messages.MessageView.MsgBindOptions
@@ -57,6 +58,8 @@ trait LogShowInstancesUI {
 //         |  page:             ${i.page.map(redactedString)})
 //       """.stripMargin
 //    }
+
+  implicit val SSOLoginTokenLogShow: LogShow[SSOLoginToken] = LogShow.logShowWithHash
 
   implicit val DeepLinkCheckingResultLogShow: LogShow[CheckingResult] = LogShow.logShowWithHash
 
